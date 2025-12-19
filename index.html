@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0d1117">
+    <meta name="description" content="Kripto Trading Tool - Teknik Analiz & Risk Hesaplayıcı">
+
+    <title>Crypto Trader Pro</title>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">📊</span>
+                <span class="logo-text">CryptoTrader</span>
+            </div>
+            <div class="header-actions">
+                <button id="refreshBtn" class="icon-btn" title="Yenile">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="analysis">📊 Analiz</button>
+            <button class="tab-btn" data-tab="signals">🎯 Sinyaller</button>
+        </div>
+
+        <!-- SIGNALS TAB -->
+        <div id="signalsTab" class="tab-content" style="display: none;">
+            <div class="signals-header">
+                <h3>🔥 En Güçlü Trade Sinyalleri</h3>
+                <div class="scan-mode-toggle">
+                    <button class="mode-btn active" data-mode="quick">⚡ Hızlı</button>
+                    <button class="mode-btn" data-mode="detailed">🔍 Detaylı</button>
+                </div>
+                <p id="scanModeDesc">Top 200 coin, 7 günlük veri (~5 sn)</p>
+                <div class="signal-buttons">
+                    <button id="scanBtn" class="scan-btn">
+                        <span>🔄</span> Tara
+                    </button>
+                    <button id="clearCacheBtn" class="clear-cache-btn" title="Önbelleği temizle">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+            <div class="scan-progress" id="scanProgress" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <span id="scanStatus">Taranıyor...</span>
+            </div>
+            <div id="signalsList" class="signals-list"></div>
+        </div>
+
+        <!-- ANALYSIS TAB -->
+        <div id="analysisTab" class="tab-content">
+            <!-- Coin Search -->
+            <div class="search-container">
+                <div class="search-box">
+                    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="m21 21-4.35-4.35" />
+                    </svg>
+                    <input type="text" id="coinSearch" placeholder="Coin ara... (BTC, ETH, SOL...)" autocomplete="off">
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+            </div>
+
+            <!-- Selected Coin Info -->
+            <div class="coin-info" id="coinInfo">
+                <div class="coin-header">
+                    <img id="coinIcon" src="" alt="" class="coin-icon">
+                    <div class="coin-name-wrapper">
+                        <h2 id="coinName">Bitcoin</h2>
+                        <span id="coinSymbol" class="coin-symbol">BTC</span>
+                    </div>
+                </div>
+                <div class="coin-price-wrapper">
+                    <span id="coinPrice" class="coin-price">$0.00</span>
+                    <span id="coinChange" class="coin-change positive">+0.00%</span>
+                </div>
+                <div class="coin-stats-row">
+                    <div class="coin-stat">
+                        <span class="stat-label">📈 24s En Yüksek</span>
+                        <span id="high24h" class="stat-value high">$0.00</span>
+                    </div>
+                    <div class="coin-stat">
+                        <span class="stat-label">📉 24s En Düşük</span>
+                        <span id="low24h" class="stat-value low">$0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeframe Selector -->
+            <div class="timeframe-container">
+                <button class="timeframe-btn" data-tf="1">1G</button>
+                <button class="timeframe-btn" data-tf="7">7G</button>
+                <button class="timeframe-btn active" data-tf="30">30G</button>
+                <button class="timeframe-btn" data-tf="90">90G</button>
+            </div>
+
+            <!-- Chart Container -->
+            <div class="chart-container">
+                <div id="priceChart" class="chart"></div>
+                <div class="chart-loading" id="chartLoading">
+                    <div class="spinner"></div>
+                    <span>Grafik yükleniyor...</span>
+                </div>
+            </div>
+
+            <!-- Technical Indicators -->
+            <div class="indicators-container">
+                <h3 class="section-title">📈 Teknik Analiz</h3>
+
+                <!-- OVERALL ANALYSIS SCORE - En üstte -->
+                <div class="overall-score-card" id="overallScoreCard">
+                    <div class="score-header">
+                        <span class="score-title">🎯 Genel Analiz Skoru</span>
+                        <span id="overallRecommendation" class="recommendation neutral">BEKLE</span>
+                    </div>
+                    <div class="score-bar-container">
+                        <div class="score-bar">
+                            <div id="bullishBar" class="bullish-bar" style="width: 50%"></div>
+                            <div id="bearishBar" class="bearish-bar" style="width: 50%"></div>
+                        </div>
+                        <div class="score-labels">
+                            <span class="bullish-label">📈 <span id="bullishPercent">50</span>%</span>
+                            <span class="bearish-label"><span id="bearishPercent">50</span>% 📉</span>
+                        </div>
+                    </div>
+                    <div class="confidence-row">
+                        <span>Güven: <span id="confidenceValue">0</span>%</span>
+                    </div>
+                </div>
+
+                <div class="indicator-grid">
+                    <!-- VOLUME ANALYSIS - Kritik -->
+                    <div class="indicator-card volume-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">📊 Hacim Analizi</span>
+                            <span id="volumeSpike" class="volume-badge hidden">SPIKE!</span>
+                        </div>
+                        <div class="volume-details">
+                            <div class="volume-row">
+                                <span>Güncel:</span>
+                                <span id="volumeCurrent">--</span>
+                            </div>
+                            <div class="volume-row">
+                                <span>Ortalama:</span>
+                                <span id="volumeAverage">--</span>
+                            </div>
+                            <div class="volume-row">
+                                <span>Oran:</span>
+                                <span id="volumeRatio" class="volume-ratio">--</span>
+                            </div>
+                        </div>
+                        <span id="volumeSignal" class="indicator-signal neutral">--</span>
+                    </div>
+
+                    <!-- OBV -->
+                    <div class="indicator-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">📈 OBV</span>
+                            <span id="obvValue" class="indicator-value">--</span>
+                        </div>
+                        <div class="obv-change">
+                            <span id="obvChange">--</span>
+                        </div>
+                        <span id="obvSignal" class="indicator-signal neutral">--</span>
+                    </div>
+
+                    <!-- CANDLESTICK PATTERNS - Kritik -->
+                    <div class="indicator-card patterns-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">🕯️ Mum Formasyonları</span>
+                        </div>
+                        <div id="patternsList" class="patterns-list">
+                            <span class="no-pattern">Taranıyor...</span>
+                        </div>
+                        <span id="patternsSignal" class="indicator-signal neutral">--</span>
+                    </div>
+
+                    <!-- SUPPORT/RESISTANCE - Kritik -->
+                    <div class="indicator-card sr-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">📍 Destek/Direnç</span>
+                        </div>
+                        <div class="sr-levels">
+                            <div class="sr-section resistance-section">
+                                <span class="sr-label">Direnç</span>
+                                <div id="resistanceLevels" class="sr-values">
+                                    <span>$--</span>
+                                </div>
+                            </div>
+                            <div class="sr-section support-section">
+                                <span class="sr-label">Destek</span>
+                                <div id="supportLevels" class="sr-values">
+                                    <span>$--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <span id="srSignal" class="indicator-signal neutral">--</span>
+                    </div>
+
+                    <!-- FIBONACCI -->
+                    <div class="indicator-card fib-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">📐 Fibonacci</span>
+                            <span id="fibTrend" class="fib-trend">--</span>
+                        </div>
+                        <div class="fib-levels">
+                            <div class="fib-row" data-level="618">
+                                <span>61.8%</span>
+                                <span id="fib618">$--</span>
+                            </div>
+                            <div class="fib-row" data-level="500">
+                                <span>50%</span>
+                                <span id="fib500">$--</span>
+                            </div>
+                            <div class="fib-row" data-level="382">
+                                <span>38.2%</span>
+                                <span id="fib382">$--</span>
+                            </div>
+                            <div class="fib-row" data-level="236">
+                                <span>23.6%</span>
+                                <span id="fib236">$--</span>
+                            </div>
+                        </div>
+                        <span id="fibSignal" class="indicator-signal neutral">--</span>
+                    </div>
+
+                    <!-- STOCH RSI -->
+                    <div class="indicator-card stochrsi-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">⚡ Stoch RSI</span>
+                        </div>
+                        <div class="stochrsi-values">
+                            <div class="stochrsi-row">
+                                <span class="k-label">K:</span>
+                                <span id="stochK" class="k-value">--</span>
+                            </div>
+                            <div class="stochrsi-row">
+                                <span class="d-label">D:</span>
+                                <span id="stochD" class="d-value">--</span>
+                            </div>
+                        </div>
+                        <div class="stochrsi-bar">
+                            <div class="stochrsi-zones">
+                                <span class="zone oversold">20</span>
+                                <span class="zone overbought">80</span>
+                            </div>
+                            <div id="stochKPointer" class="stochrsi-pointer k" style="left: 50%"></div>
+                            <div id="stochDPointer" class="stochrsi-pointer d" style="left: 50%"></div>
+                        </div>
+                        <span id="stochRsiSignal" class="indicator-signal neutral">--</span>
+                    </div>
+
+                    <!-- ADX -->
+                    <div class="indicator-card adx-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">💪 ADX (Trend Gücü)</span>
+                            <span id="adxValue" class="indicator-value">--</span>
+                        </div>
+                        <div class="adx-details">
+                            <div class="di-row">
+                                <span class="plus-di">+DI: <span id="plusDI">--</span></span>
+                                <span class="minus-di">-DI: <span id="minusDI">--</span></span>
+                            </div>
+                            <div class="adx-strength-bar">
+                                <div id="adxStrengthFill" class="adx-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <span id="adxSignal" class="indicator-signal neutral">--</span>
+                    </div>
+
+                    <!-- RSI -->
+                    <div class="indicator-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">RSI (14)</span>
+                            <span id="rsiValue" class="indicator-value">--</span>
+                        </div>
+                        <div class="rsi-bar">
+                            <div class="rsi-zones">
+                                <span class="zone oversold">Aşırı Satım</span>
+                                <span class="zone neutral">Nötr</span>
+                                <span class="zone overbought">Aşırı Alım</span>
+                            </div>
+                            <div id="rsiIndicator" class="rsi-pointer" style="left: 50%"></div>
+                        </div>
+                        <span id="rsiSignal" class="indicator-signal neutral">Nötr</span>
+                    </div>
+
+                    <!-- MA200 -->
+                    <div class="indicator-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">MA 200</span>
+                            <span id="ma200Value" class="indicator-value">$--</span>
+                        </div>
+                        <span id="ma200Signal" class="indicator-signal neutral">--</span>
+                    </div>
+
+                    <!-- MACD -->
+                    <div class="indicator-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">MACD</span>
+                            <span id="macdValue" class="indicator-value">--</span>
+                        </div>
+                        <div class="macd-details">
+                            <span>Signal: <span id="macdSignalLine">--</span></span>
+                            <span>Histogram: <span id="macdHistogram">--</span></span>
+                        </div>
+                        <span id="macdSignal" class="indicator-signal neutral">--</span>
+                    </div>
+
+                    <!-- Bollinger Bands -->
+                    <div class="indicator-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">Bollinger Bands</span>
+                        </div>
+                        <div class="bb-details">
+                            <span>Üst: <span id="bbUpper">$--</span></span>
+                            <span>Orta: <span id="bbMiddle">$--</span></span>
+                            <span>Alt: <span id="bbLower">$--</span></span>
+                        </div>
+                        <span id="bbSignal" class="indicator-signal neutral">--</span>
+                    </div>
+
+                    <!-- Pivot Points -->
+                    <div class="indicator-card pivot-card">
+                        <div class="indicator-header">
+                            <span class="indicator-name">Pivot Points</span>
+                        </div>
+                        <div class="pivot-grid">
+                            <div class="pivot-row resistance">
+                                <span>R3</span><span id="pivotR3">$--</span>
+                            </div>
+                            <div class="pivot-row resistance">
+                                <span>R2</span><span id="pivotR2">$--</span>
+                            </div>
+                            <div class="pivot-row resistance">
+                                <span>R1</span><span id="pivotR1">$--</span>
+                            </div>
+                            <div class="pivot-row pivot">
+                                <span>PP</span><span id="pivotPP">$--</span>
+                            </div>
+                            <div class="pivot-row support">
+                                <span>S1</span><span id="pivotS1">$--</span>
+                            </div>
+                            <div class="pivot-row support">
+                                <span>S2</span><span id="pivotS2">$--</span>
+                            </div>
+                            <div class="pivot-row support">
+                                <span>S3</span><span id="pivotS3">$--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Calculator -->
+            <div class="calculator-container">
+                <h3 class="section-title">🎯 Risk Hesaplayıcı (%2 Kural)</h3>
+
+                <div class="calc-form">
+                    <div class="form-group">
+                        <label for="portfolioSize">Kasa Miktarı ($)</label>
+                        <input type="number" id="portfolioSize" placeholder="1000" value="1000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="leverage">Kaldıraç (1-150x)</label>
+                        <div class="leverage-input-wrapper">
+                            <input type="number" id="leverage" min="1" max="150" value="50" step="1">
+                            <span class="leverage-suffix">x</span>
+                        </div>
+                        <div class="leverage-presets">
+                            <button type="button" class="preset-btn" data-lev="10">10x</button>
+                            <button type="button" class="preset-btn" data-lev="25">25x</button>
+                            <button type="button" class="preset-btn" data-lev="50">50x</button>
+                            <button type="button" class="preset-btn" data-lev="75">75x</button>
+                            <button type="button" class="preset-btn" data-lev="100">100x</button>
+                            <button type="button" class="preset-btn" data-lev="125">125x</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="stopLossPercent">Stop Loss (%)</label>
+                        <input type="number" id="stopLossPercent" placeholder="2" value="2" step="0.1">
+                    </div>
+
+                    <div class="position-toggle">
+                        <button id="longBtn" class="position-btn long active">
+                            <span>📈</span> LONG
+                        </button>
+                        <button id="shortBtn" class="position-btn short">
+                            <span>📉</span> SHORT
+                        </button>
+                    </div>
+
+                    <button id="calculateBtn" class="calculate-btn">
+                        <span>Hesapla</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Results -->
+                <div class="calc-results" id="calcResults">
+                    <div class="result-card entry">
+                        <span class="result-label">Giriş Miktarı</span>
+                        <span id="entryAmount" class="result-value">$0.00</span>
+                        <span class="result-sub">Hesaba yatırılacak</span>
+                    </div>
+
+                    <div class="result-card position">
+                        <span class="result-label">Pozisyon Büyüklüğü</span>
+                        <span id="positionSize" class="result-value">$0.00</span>
+                        <span class="result-sub">Kaldıraçlı değer</span>
+                    </div>
+
+                    <div class="result-card stoploss">
+                        <span class="result-label">Stop Loss</span>
+                        <span id="slPrice" class="result-value">$0.00</span>
+                        <span id="slPercent" class="result-sub">-%0.00</span>
+                    </div>
+
+                    <div class="result-card takeprofit">
+                        <span class="result-label">Take Profit Seviyeleri</span>
+                        <div class="tp-levels">
+                            <div class="tp-level">
+                                <span>TP1 (1:1)</span>
+                                <span id="tp1">$0.00</span>
+                            </div>
+                            <div class="tp-level">
+                                <span>TP2 (1:2)</span>
+                                <span id="tp2">$0.00</span>
+                            </div>
+                            <div class="tp-level">
+                                <span>TP3 (1:3)</span>
+                                <span id="tp3">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="result-card liquidation">
+                        <span class="result-label">⚠️ Likidasyon Fiyatı</span>
+                        <span id="liqPrice" class="result-value warning">$0.00</span>
+                    </div>
+
+                    <div class="result-card risk-info">
+                        <div class="risk-summary">
+                            <span>Maksimum Kayıp:</span>
+                            <span id="maxLoss" class="loss-amount">$0.00</span>
+                        </div>
+                        <div class="risk-percentage">
+                            Kasanın <strong>%2</strong>'si
+                        </div>
+                    </div>
+
+                    <!-- TEMİNAT HESAPLAYICI -->
+                    <div class="margin-calculator-section">
+                        <h4 class="margin-section-title">💰 Teminat Hesaplayıcı</h4>
+
+                        <!-- Teminat Ekleme -->
+                        <div class="margin-card">
+                            <div class="margin-header">
+                                <span>📥 Teminat Ekle</span>
+                            </div>
+                            <div class="margin-form">
+                                <div class="margin-input-group">
+                                    <label>Eklenecek Teminat ($)</label>
+                                    <input type="number" id="addMarginAmount" placeholder="100" value="">
+                                </div>
+                                <button id="calcMarginBtn" class="margin-calc-btn">Hesapla</button>
+                            </div>
+                            <div id="marginResults" class="margin-results hidden">
+                                <div class="margin-result-row">
+                                    <span>Yeni Toplam Teminat:</span>
+                                    <span id="newTotalMargin">$--</span>
+                                </div>
+                                <div class="margin-result-row">
+                                    <span>Yeni Efektif Kaldıraç:</span>
+                                    <span id="newEffectiveLeverage">--x</span>
+                                </div>
+                                <div class="margin-result-row highlight">
+                                    <span>Yeni Likidasyon:</span>
+                                    <span id="newLiqPrice">$--</span>
+                                </div>
+                                <div class="margin-result-row improvement">
+                                    <span>İyileşme:</span>
+                                    <span id="liqImprovement">+%0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hedef Likidasyon -->
+                        <div class="margin-card">
+                            <div class="margin-header">
+                                <span>🎯 Hedef Likidasyon</span>
+                            </div>
+                            <div class="margin-form">
+                                <div class="margin-input-group">
+                                    <label>Likidasyon Yüzdesi (%)</label>
+                                    <input type="number" id="targetLiqPercent" placeholder="10" value="10" step="1">
+                                </div>
+                                <div class="target-presets">
+                                    <button type="button" class="target-preset-btn" data-percent="5">%5</button>
+                                    <button type="button" class="target-preset-btn" data-percent="10">%10</button>
+                                    <button type="button" class="target-preset-btn" data-percent="15">%15</button>
+                                    <button type="button" class="target-preset-btn" data-percent="20">%20</button>
+                                </div>
+                                <button id="calcTargetBtn" class="margin-calc-btn">Hesapla</button>
+                            </div>
+                            <div id="targetResults" class="margin-results hidden">
+                                <div class="margin-result-row">
+                                    <span>Hedef Likidasyon Fiyatı:</span>
+                                    <span id="targetLiqPriceResult">$--</span>
+                                </div>
+                                <div class="margin-result-row">
+                                    <span>Gereken Toplam Teminat:</span>
+                                    <span id="requiredTotalMargin">$--</span>
+                                </div>
+                                <div class="margin-result-row highlight-green">
+                                    <span>Eklenmesi Gereken:</span>
+                                    <span id="additionalMarginNeeded">$--</span>
+                                </div>
+                                <div class="margin-result-row">
+                                    <span>Yeni Kaldıraç:</span>
+                                    <span id="targetNewLeverage">--x</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BAĞIMSIZ TEMİNAT HESAPLAYICI -->
+            <div class="calculator-container margin-standalone">
+                <h3 class="section-title">💰 Teminat & Likidasyon Hesaplayıcı</h3>
+                <p class="section-desc">Mevcut pozisyonunuz için likidasyon fiyatını hesaplayın</p>
+
+                <div class="calc-form">
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="marginEntryPrice">Giriş Fiyatı ($)</label>
+                            <input type="number" id="marginEntryPrice" placeholder="100000" step="any">
+                        </div>
+                        <div class="form-group">
+                            <label for="marginLeverage">Kaldıraç (x)</label>
+                            <div class="leverage-input-wrapper">
+                                <input type="number" id="marginLeverage" min="1" max="150" value="50" step="1">
+                                <span class="leverage-suffix">x</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="marginPositionSize">Pozisyon Büyüklüğü ($)</label>
+                            <input type="number" id="marginPositionSize" placeholder="1000" step="any">
+                        </div>
+                        <div class="form-group">
+                            <label for="marginAmount">Teminat (Marjin) ($)</label>
+                            <input type="number" id="marginAmount" placeholder="20" step="any">
+                        </div>
+                    </div>
+
+                    <div class="position-toggle">
+                        <button id="marginLongBtn" class="position-btn long active">
+                            <span>📈</span> LONG
+                        </button>
+                        <button id="marginShortBtn" class="position-btn short">
+                            <span>📉</span> SHORT
+                        </button>
+                    </div>
+
+                    <button id="calcMarginStandaloneBtn" class="calculate-btn margin-btn">
+                        <span>💰 Likidasyon Hesapla</span>
+                    </button>
+                </div>
+
+                <!-- Sonuçlar -->
+                <div class="margin-standalone-results" id="marginStandaloneResults">
+                    <div class="result-card liquidation">
+                        <span class="result-label">⚠️ Likidasyon Fiyatı</span>
+                        <span id="marginLiqPrice" class="result-value warning">$0.00</span>
+                        <span id="marginLiqPercent" class="result-sub">Girişten %0 uzakta</span>
+                    </div>
+
+                    <div class="margin-info-grid">
+                        <div class="margin-info-item">
+                            <span class="info-label">Efektif Kaldıraç</span>
+                            <span id="marginEffLeverage" class="info-value">--x</span>
+                        </div>
+                        <div class="margin-info-item">
+                            <span class="info-label">Marjin Oranı</span>
+                            <span id="marginRatio" class="info-value">--%</span>
+                        </div>
+                        <div class="margin-info-item">
+                            <span class="info-label">Güvenli Bölge</span>
+                            <span id="marginSafeZone" class="info-value safe">--</span>
+                        </div>
+                        <div class="margin-info-item">
+                            <span class="info-label">Risk Seviyesi</span>
+                            <span id="marginRiskLevel" class="info-value">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Teminat Ekleme Simülasyonu -->
+                    <div class="add-margin-simulation">
+                        <h4>📥 Teminat Ekle - Ne Olur?</h4>
+                        <div class="sim-form">
+                            <div class="sim-input-group">
+                                <label>Eklenecek Teminat ($)</label>
+                                <input type="number" id="simAddMargin" placeholder="50" step="any">
+                            </div>
+                            <button id="simAddMarginBtn" class="sim-btn">Simüle Et</button>
+                        </div>
+                        <div id="simResults" class="sim-results hidden">
+                            <div class="sim-row">
+                                <span>Yeni Toplam Teminat:</span>
+                                <span id="simNewMargin">$--</span>
+                            </div>
+                            <div class="sim-row">
+                                <span>Yeni Likidasyon:</span>
+                                <span id="simNewLiqPrice" class="highlight">$--</span>
+                            </div>
+                            <div class="sim-row improvement">
+                                <span>İyileşme:</span>
+                                <span id="simImprovement">+%0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> <!-- Close analysisTab -->
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Veriler Binance API'den alınmaktadır</p>
+            <p class="disclaimer">⚠️ Bu uygulama yatırım tavsiyesi değildir</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="binance-api.js"></script>
+    <script src="cache.js"></script>
+    <script src="indicators.js"></script>
+    <script src="risk-calculator.js"></script>
+    <script src="scanner.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
