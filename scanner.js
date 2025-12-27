@@ -74,7 +74,7 @@ const Scanner = {
     },
 
     async quickScan(status, progressFill) {
-        status.textContent = 'Top 200 coin alınıyor (Binance)...';
+        status.textContent = 'Coin listesi alınıyor...';
 
         // Short cache for quick scan (2 minutes)
         const cacheKey = 'quick_scan_binance';
@@ -93,18 +93,17 @@ const Scanner = {
             localStorage.setItem('crypto_' + cacheKey, JSON.stringify({ data: coins, timestamp: Date.now() }));
         }
 
-        progressFill.style.width = '20%';
-        status.textContent = 'Teknik analiz yapılıyor (İndikatör tabanlı)...';
+        const totalCoins = coins.length;
+        progressFill.style.width = '10%';
+        status.textContent = 'Analiz başlıyor...';
 
-        // Quick scan now uses the same technical analysis as detailed scan
-        // But with 7-day data for faster processing
+        // Quick scan - update UI for EVERY coin like detailed scan
         for (let i = 0; i < coins.length; i++) {
             const coin = coins[i];
 
-            if (i % 20 === 0) {
-                status.textContent = `${coin.name} analiz ediliyor... (${i + 1}/200)`;
-                progressFill.style.width = (20 + (i / coins.length * 75)) + '%';
-            }
+            // Update progress for EVERY coin (smooth progress like detailed scan)
+            status.textContent = `${coin.name} analiz ediliyor... (${i + 1}/${totalCoins})`;
+            progressFill.style.width = (10 + (i / totalCoins * 85)) + '%';
 
             try {
                 // Check cache for chart data (2 min cache)
@@ -125,12 +124,16 @@ const Scanner = {
                         localStorage.setItem('crypto_' + chartCacheKey, JSON.stringify({ data: chartData, timestamp: Date.now() }));
                     }
                     // Small delay to avoid API rate limits
-                    await this.delay(50);
+                    await this.delay(30);
                 }
 
-                if (chartData?.prices?.length > 50) {
+                if (chartData?.prices?.length >= 30) {
+                    // Ensure icon URL is set from BinanceAPI
+                    if (!coin.image || coin.image === '') {
+                        coin.image = BinanceAPI.getIconUrl(coin.binanceSymbol || coin.id.toUpperCase() + 'USDT');
+                    }
                     const signal = this.analyzeWithTechnicalScore(coin, chartData);
-                    if (signal && signal.score >= 35) {
+                    if (signal && signal.score >= 30) {
                         this.signals.push(signal);
                     }
                 }
@@ -141,17 +144,19 @@ const Scanner = {
     },
 
     async detailedScan(status, progressFill) {
-        status.textContent = 'Top 100 coin listesi alınıyor (Binance)...';
+        status.textContent = 'Coin listesi alınıyor...';
 
         // Get top 100 coins
         const coinList = await BinanceAPI.getTopCoins(100);
+        const totalCoins = coinList.length;
         progressFill.style.width = '10%';
+        status.textContent = 'Analiz başlıyor...';
 
         // Analyze each coin with 30-day data
         for (let i = 0; i < coinList.length; i++) {
             const coin = coinList[i];
-            status.textContent = `${coin.name} analiz ediliyor... (${i + 1}/100)`;
-            progressFill.style.width = (10 + (i / coinList.length * 85)) + '%';
+            status.textContent = `${coin.name} analiz ediliyor... (${i + 1}/${totalCoins})`;
+            progressFill.style.width = (10 + (i / totalCoins * 85)) + '%';
 
             try {
                 // Check cache for this coin (2 min cache)
@@ -171,12 +176,16 @@ const Scanner = {
                         localStorage.setItem('crypto_' + cacheKey, JSON.stringify({ data: chartData, timestamp: Date.now() }));
                     }
                     // Small delay to be nice to the API
-                    await this.delay(100);
+                    await this.delay(50);
                 }
 
-                if (chartData?.prices?.length > 100) {
+                if (chartData?.prices?.length >= 50) {
+                    // Ensure icon URL is set
+                    if (!coin.image || coin.image === '') {
+                        coin.image = BinanceAPI.getIconUrl(coin.binanceSymbol || coin.id.toUpperCase() + 'USDT');
+                    }
                     const signal = this.analyzeWithFullData(coin, chartData);
-                    if (signal && signal.score >= 40) {
+                    if (signal && signal.score >= 35) {
                         this.signals.push(signal);
                     }
                 }
@@ -194,7 +203,7 @@ const Scanner = {
         const prices = chartData.prices.map(p => p[1]);
         const currentPrice = coin.current_price;
 
-        if (prices.length < 50) return null;
+        if (prices.length < 20) return null;
 
         // Tüm indikatörleri hesapla
         const rsi = Indicators.calculateRSI(prices);
@@ -203,76 +212,114 @@ const Scanner = {
         const ma = Indicators.calculateMA200(prices);
         const stochRsi = Indicators.calculateStochRSI(prices);
 
-        // Genel skoru hesapla (Indicators.calculateOverallScore ile aynı ağırlıklar)
-        const allIndicators = {
-            rsi: rsi,
-            macd: macd,
-            bb: bb,
-            ma200: ma,
-            stochRsi: stochRsi
-        };
-
-        const overall = Indicators.calculateOverallScore(allIndicators);
-
-        // Long veya Short sinyali belirle
-        let type = 'neutral';
-        let score = 0;
+        // Basit skor hesaplama (volume ve patterns olmadan)
+        let longScore = 0;
+        let shortScore = 0;
         let reasons = [];
 
-        const bullishPercent = overall.bullishPercent;
-        const bearishPercent = overall.bearishPercent;
-
-        // LONG sinyal koşulları (Teknik Analiz "AL" diyorsa)
-        if (bullishPercent >= 55) {
-            type = 'long';
-            score = bullishPercent;
-
-            // Nedenleri ekle
-            if (rsi.signal === 'bullish') {
-                if (rsi.value <= 30) reasons.push(`RSI aşırı satım (${rsi.value.toFixed(0)})`);
-                else reasons.push(`RSI yükseliş (${rsi.value.toFixed(0)})`);
-            }
-            if (macd.trend === 'bullish') reasons.push('MACD pozitif');
-            if (stochRsi.signal === 'bullish') reasons.push('Stoch RSI alım');
-            if (bb.signal === 'bullish') reasons.push('BB alt banda yakın');
-            if (ma.signal === 'bullish') reasons.push('MA üzerinde');
-        }
-        // SHORT sinyal koşulları (Teknik Analiz "SAT" diyorsa)
-        else if (bearishPercent >= 55) {
-            type = 'short';
-            score = bearishPercent;
-
-            // Nedenleri ekle
-            if (rsi.signal === 'bearish') {
-                if (rsi.value >= 70) reasons.push(`RSI aşırı alım (${rsi.value.toFixed(0)})`);
-                else reasons.push(`RSI düşüş (${rsi.value.toFixed(0)})`);
-            }
-            if (macd.trend === 'bearish') reasons.push('MACD negatif');
-            if (stochRsi.signal === 'bearish') reasons.push('Stoch RSI satım');
-            if (bb.signal === 'bearish') reasons.push('BB üst banda yakın');
-            if (ma.signal === 'bearish') reasons.push('MA altında');
+        // RSI (25 puan)
+        if (rsi.value <= 30) {
+            longScore += 25;
+            reasons.push(`RSI aşırı satım (${rsi.value.toFixed(0)})`);
+        } else if (rsi.value <= 40) {
+            longScore += 15;
+            reasons.push(`RSI düşük (${rsi.value.toFixed(0)})`);
+        } else if (rsi.value >= 70) {
+            shortScore += 25;
+            reasons.push(`RSI aşırı alım (${rsi.value.toFixed(0)})`);
+        } else if (rsi.value >= 60) {
+            shortScore += 15;
+            reasons.push(`RSI yüksek (${rsi.value.toFixed(0)})`);
         }
 
-        // Nötr ise sinyal verme
-        if (type === 'neutral') {
+        // Stoch RSI (20 puan)
+        if (stochRsi.oversold) {
+            longScore += 20;
+            reasons.push('Stoch RSI aşırı satım');
+        } else if (stochRsi.k < 30) {
+            longScore += 10;
+        }
+        if (stochRsi.overbought) {
+            shortScore += 20;
+            reasons.push('Stoch RSI aşırı alım');
+        } else if (stochRsi.k > 70) {
+            shortScore += 10;
+        }
+        if (stochRsi.crossover === 'bullish') {
+            longScore += 10;
+            reasons.push('Stoch RSI boğa kesişimi');
+        } else if (stochRsi.crossover === 'bearish') {
+            shortScore += 10;
+            reasons.push('Stoch RSI ayı kesişimi');
+        }
+
+        // MACD (15 puan)
+        if (macd.histogram > 0 && macd.trend === 'bullish') {
+            longScore += 15;
+            reasons.push('MACD pozitif');
+        } else if (macd.histogram < 0 && macd.trend === 'bearish') {
+            shortScore += 15;
+            reasons.push('MACD negatif');
+        }
+
+        // Bollinger Bands (20 puan)
+        const bbPosition = (currentPrice - bb.lower) / (bb.upper - bb.lower);
+        if (bbPosition <= 0.1) {
+            longScore += 20;
+            reasons.push('BB alt bandında');
+        } else if (bbPosition <= 0.25) {
+            longScore += 10;
+            reasons.push('BB alt bölgede');
+        } else if (bbPosition >= 0.9) {
+            shortScore += 20;
+            reasons.push('BB üst bandında');
+        } else if (bbPosition >= 0.75) {
+            shortScore += 10;
+            reasons.push('BB üst bölgede');
+        }
+
+        // MA200 (10 puan)
+        if (ma.signal === 'bullish') {
+            longScore += 10;
+            reasons.push('MA üzerinde');
+        } else if (ma.signal === 'bearish') {
+            shortScore += 10;
+            reasons.push('MA altında');
+        }
+
+        // 24h momentum bonus (10 puan)
+        const change24h = coin.price_change_percentage_24h || 0;
+        if (change24h >= 5) {
+            longScore += 10;
+            reasons.push(`Güçlü momentum (+${change24h.toFixed(1)}%)`);
+        } else if (change24h <= -5) {
+            shortScore += 10;
+            reasons.push(`Zayıf momentum (${change24h.toFixed(1)}%)`);
+        }
+
+        // Long veya Short belirle
+        const isLong = longScore > shortScore;
+        const score = isLong ? longScore : shortScore;
+
+        // Minimum fark gereksinimi (çok yakın skorları eleme)
+        if (Math.abs(longScore - shortScore) < 10) {
             return null;
         }
 
-        // Güven eşiği kontrolü
-        if (Math.abs(bullishPercent - bearishPercent) < 15) {
-            return null; // Yeterli güven yok
+        // Minimum skor gereksinimi
+        if (score < 30) {
+            return null;
         }
 
         return {
             coin,
-            type,
+            type: isLong ? 'long' : 'short',
             score: Math.min(score, 100),
             price: currentPrice,
             rsi: rsi.value,
             stochRsi: stochRsi.k,
             macd: macd.histogram > 0 ? 'Pozitif' : 'Negatif',
-            reasons: reasons.slice(0, 3),
-            overall: overall
+            reasons: reasons.slice(0, 3)
         };
     },
 
@@ -425,11 +472,17 @@ const Scanner = {
             return;
         }
 
-        list.innerHTML = signals.map(s => `
+        list.innerHTML = signals.map(s => {
+            const symbol = (s.coin.symbol || s.coin.name || 'XX').toUpperCase();
+            const initials = symbol.substring(0, 2);
+            const fallbackSvg = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%2358a6ff%22/><text x=%2250%22 y=%2265%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2232%22 font-weight=%22bold%22>${initials}</text></svg>`;
+            const imgSrc = s.coin.image || fallbackSvg;
+
+            return `
             <div class="signal-card ${s.type}" onclick="Scanner.selectCoin('${s.coin.id}')">
                 <div class="signal-header">
                     <div class="signal-coin">
-                        <img src="${s.coin.image}" alt="${s.coin.symbol}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%2358a6ff%22/></svg>'">
+                        <img src="${imgSrc}" alt="${s.coin.symbol}" onerror="this.src='${fallbackSvg}'">
                         <div class="signal-coin-info">
                             <h4>${s.coin.name}</h4>
                             <span>${s.coin.symbol}</span>
@@ -463,11 +516,12 @@ const Scanner = {
                     <strong>Neden:</strong> ${s.reasons.join(' • ')}
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     },
 
     selectCoin(coinId) {
         document.querySelector('[data-tab="analysis"]').click();
+        App.showBackToScannerBtn('signals');
         App.loadCoin(coinId);
     },
 

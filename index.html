@@ -42,6 +42,7 @@
         <div class="tab-navigation">
             <button class="tab-btn active" data-tab="analysis">📊 Analiz</button>
             <button class="tab-btn" data-tab="signals">🎯 Sinyaller</button>
+            <button class="tab-btn" data-tab="highleverage">🚀 Yüksek Kaldıraç</button>
         </div>
 
         <!-- SIGNALS TAB -->
@@ -73,6 +74,11 @@
 
         <!-- ANALYSIS TAB -->
         <div id="analysisTab" class="tab-content">
+            <!-- Back to Scanner Button (hidden by default) -->
+            <button id="backToScannerBtn" class="back-to-scanner-btn hidden" onclick="App.backToScanner()">
+                ← Taramaya Dön
+            </button>
+
             <!-- Coin Search -->
             <div class="search-container">
                 <div class="search-box">
@@ -479,183 +485,73 @@
                         </div>
                     </div>
 
-                    <!-- TEMİNAT HESAPLAYICI -->
-                    <div class="margin-calculator-section">
-                        <h4 class="margin-section-title">💰 Teminat Hesaplayıcı</h4>
 
-                        <!-- Teminat Ekleme -->
-                        <div class="margin-card">
-                            <div class="margin-header">
-                                <span>📥 Teminat Ekle</span>
-                            </div>
-                            <div class="margin-form">
-                                <div class="margin-input-group">
-                                    <label>Eklenecek Teminat ($)</label>
-                                    <input type="number" id="addMarginAmount" placeholder="100" value="">
-                                </div>
-                                <button id="calcMarginBtn" class="margin-calc-btn">Hesapla</button>
-                            </div>
-                            <div id="marginResults" class="margin-results hidden">
-                                <div class="margin-result-row">
-                                    <span>Yeni Toplam Teminat:</span>
-                                    <span id="newTotalMargin">$--</span>
-                                </div>
-                                <div class="margin-result-row">
-                                    <span>Yeni Efektif Kaldıraç:</span>
-                                    <span id="newEffectiveLeverage">--x</span>
-                                </div>
-                                <div class="margin-result-row highlight">
-                                    <span>Yeni Likidasyon:</span>
-                                    <span id="newLiqPrice">$--</span>
-                                </div>
-                                <div class="margin-result-row improvement">
-                                    <span>İyileşme:</span>
-                                    <span id="liqImprovement">+%0</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Hedef Likidasyon -->
-                        <div class="margin-card">
-                            <div class="margin-header">
-                                <span>🎯 Hedef Likidasyon</span>
-                            </div>
-                            <div class="margin-form">
-                                <div class="margin-input-group">
-                                    <label>Likidasyon Yüzdesi (%)</label>
-                                    <input type="number" id="targetLiqPercent" placeholder="10" value="10" step="1">
-                                </div>
-                                <div class="target-presets">
-                                    <button type="button" class="target-preset-btn" data-percent="5">%5</button>
-                                    <button type="button" class="target-preset-btn" data-percent="10">%10</button>
-                                    <button type="button" class="target-preset-btn" data-percent="15">%15</button>
-                                    <button type="button" class="target-preset-btn" data-percent="20">%20</button>
-                                </div>
-                                <button id="calcTargetBtn" class="margin-calc-btn">Hesapla</button>
-                            </div>
-                            <div id="targetResults" class="margin-results hidden">
-                                <div class="margin-result-row">
-                                    <span>Hedef Likidasyon Fiyatı:</span>
-                                    <span id="targetLiqPriceResult">$--</span>
-                                </div>
-                                <div class="margin-result-row">
-                                    <span>Gereken Toplam Teminat:</span>
-                                    <span id="requiredTotalMargin">$--</span>
-                                </div>
-                                <div class="margin-result-row highlight-green">
-                                    <span>Eklenmesi Gereken:</span>
-                                    <span id="additionalMarginNeeded">$--</span>
-                                </div>
-                                <div class="margin-result-row">
-                                    <span>Yeni Kaldıraç:</span>
-                                    <span id="targetNewLeverage">--x</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
-            <!-- BAĞIMSIZ TEMİNAT HESAPLAYICI -->
-            <div class="calculator-container margin-standalone">
-                <h3 class="section-title">💰 Teminat & Likidasyon Hesaplayıcı</h3>
-                <p class="section-desc">Mevcut pozisyonunuz için likidasyon fiyatını hesaplayın</p>
 
-                <div class="calc-form">
-                    <div class="form-row-2">
-                        <div class="form-group">
-                            <label for="marginEntryPrice">Giriş Fiyatı ($)</label>
-                            <input type="number" id="marginEntryPrice" placeholder="100000" step="any">
-                        </div>
-                        <div class="form-group">
-                            <label for="marginLeverage">Kaldıraç (x)</label>
-                            <div class="leverage-input-wrapper">
-                                <input type="number" id="marginLeverage" min="1" max="150" value="50" step="1">
-                                <span class="leverage-suffix">x</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-row-2">
-                        <div class="form-group">
-                            <label for="marginPositionSize">Pozisyon Büyüklüğü ($)</label>
-                            <input type="number" id="marginPositionSize" placeholder="1000" step="any">
-                        </div>
-                        <div class="form-group">
-                            <label for="marginAmount">Teminat (Marjin) ($)</label>
-                            <input type="number" id="marginAmount" placeholder="20" step="any">
-                        </div>
-                    </div>
-
-                    <div class="position-toggle">
-                        <button id="marginLongBtn" class="position-btn long active">
-                            <span>📈</span> LONG
-                        </button>
-                        <button id="marginShortBtn" class="position-btn short">
-                            <span>📉</span> SHORT
-                        </button>
-                    </div>
-
-                    <button id="calcMarginStandaloneBtn" class="calculate-btn margin-btn">
-                        <span>💰 Likidasyon Hesapla</span>
-                    </button>
-                </div>
-
-                <!-- Sonuçlar -->
-                <div class="margin-standalone-results" id="marginStandaloneResults">
-                    <div class="result-card liquidation">
-                        <span class="result-label">⚠️ Likidasyon Fiyatı</span>
-                        <span id="marginLiqPrice" class="result-value warning">$0.00</span>
-                        <span id="marginLiqPercent" class="result-sub">Girişten %0 uzakta</span>
-                    </div>
-
-                    <div class="margin-info-grid">
-                        <div class="margin-info-item">
-                            <span class="info-label">Efektif Kaldıraç</span>
-                            <span id="marginEffLeverage" class="info-value">--x</span>
-                        </div>
-                        <div class="margin-info-item">
-                            <span class="info-label">Marjin Oranı</span>
-                            <span id="marginRatio" class="info-value">--%</span>
-                        </div>
-                        <div class="margin-info-item">
-                            <span class="info-label">Güvenli Bölge</span>
-                            <span id="marginSafeZone" class="info-value safe">--</span>
-                        </div>
-                        <div class="margin-info-item">
-                            <span class="info-label">Risk Seviyesi</span>
-                            <span id="marginRiskLevel" class="info-value">--</span>
-                        </div>
-                    </div>
-
-                    <!-- Teminat Ekleme Simülasyonu -->
-                    <div class="add-margin-simulation">
-                        <h4>📥 Teminat Ekle - Ne Olur?</h4>
-                        <div class="sim-form">
-                            <div class="sim-input-group">
-                                <label>Eklenecek Teminat ($)</label>
-                                <input type="number" id="simAddMargin" placeholder="50" step="any">
-                            </div>
-                            <button id="simAddMarginBtn" class="sim-btn">Simüle Et</button>
-                        </div>
-                        <div id="simResults" class="sim-results hidden">
-                            <div class="sim-row">
-                                <span>Yeni Toplam Teminat:</span>
-                                <span id="simNewMargin">$--</span>
-                            </div>
-                            <div class="sim-row">
-                                <span>Yeni Likidasyon:</span>
-                                <span id="simNewLiqPrice" class="highlight">$--</span>
-                            </div>
-                            <div class="sim-row improvement">
-                                <span>İyileşme:</span>
-                                <span id="simImprovement">+%0</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div> <!-- Close analysisTab -->
+
+        <!-- HIGH LEVERAGE TAB -->
+        <div id="highleverageTab" class="tab-content" style="display: none;">
+            <div class="hl-scanner-container">
+                <div class="hl-header">
+                    <div class="hl-title">
+                        <h2>🚀 Yüksek Kaldıraç Tarama</h2>
+                        <p class="hl-subtitle">Top 500 coin • Breakout & Pattern Detection • %100 Kar Hedefi</p>
+                    </div>
+                    <div class="hl-info-box">
+                        <span class="hl-info-icon">💡</span>
+                        <span>75-150x kaldıraçta ~%1 hareket = %100 kar</span>
+                    </div>
+                </div>
+
+                <div class="hl-scan-controls">
+                    <button id="hlScanBtn" class="hl-scan-btn">
+                        <span class="hl-scan-icon">🔍</span>
+                        <span>Taramayı Başlat</span>
+                    </button>
+                    <div class="hl-scan-progress" id="hlScanProgress" style="display: none;">
+                        <div class="hl-progress-bar">
+                            <div class="hl-progress-fill" id="hlProgressFill"></div>
+                        </div>
+                        <span id="hlScanStatus" class="hl-status">Taranıyor...</span>
+                    </div>
+                </div>
+
+                <div class="hl-results">
+                    <div class="hl-results-section long-section">
+                        <div class="hl-section-header">
+                            <span class="hl-section-icon">📈</span>
+                            <h3>En İyi LONG Sinyalleri</h3>
+                        </div>
+                        <div id="hlLongSignals" class="hl-signals-list">
+                            <div class="hl-empty-state">
+                                <span>Tarama yapılmadı</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hl-results-section short-section">
+                        <div class="hl-section-header">
+                            <span class="hl-section-icon">📉</span>
+                            <h3>En İyi SHORT Sinyalleri</h3>
+                        </div>
+                        <div id="hlShortSignals" class="hl-signals-list">
+                            <div class="hl-empty-state">
+                                <span>Tarama yapılmadı</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hl-disclaimer">
+                    <span>⚠️</span>
+                    <span>Yüksek kaldıraç yüksek risk içerir. Her işlemde stop-loss kullanın. Bu yatırım tavsiyesi
+                        değildir.</span>
+                </div>
+            </div>
+        </div>
 
         <!-- Footer -->
         <footer class="footer">
@@ -674,6 +570,8 @@
     <script src="indicators.js"></script>
     <script src="risk-calculator.js"></script>
     <script src="scanner.js"></script>
+    <script src="high-leverage-scanner.js"></script>
+    <script src="pattern-visuals.js"></script>
     <script src="app.js"></script>
 </body>
 

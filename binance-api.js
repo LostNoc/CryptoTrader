@@ -55,10 +55,21 @@ const BinanceAPI = {
         'floki': 'FLOKIUSDT'
     },
 
-    // Coin icons (Binance doesn't provide icons, use CryptoCompare)
+    // Coin icons - Using CoinCap which has reliable icons
     getIconUrl(symbol) {
+        const base = symbol.replace('USDT', '').replace('BUSD', '').toLowerCase();
+        // CoinCap has good icon coverage
+        return `https://assets.coincap.io/assets/icons/${base}@2x.png`;
+    },
+
+    // Generate SVG fallback with coin symbol (used when icon fails to load)
+    getIconFallback(symbol) {
         const base = symbol.replace('USDT', '').replace('BUSD', '');
-        return `https://assets.coincap.io/assets/icons/${base.toLowerCase()}@2x.png`;
+        const initials = base.substring(0, 2).toUpperCase();
+        // Generate a consistent color based on the symbol
+        const hash = base.split('').reduce((acc, char) => char.charCodeAt(0) + acc, 0);
+        const hue = hash % 360;
+        return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="hsl(${hue}, 60%, 50%)"/><text x="50" y="60" text-anchor="middle" fill="white" font-size="28" font-family="Arial, sans-serif" font-weight="bold">${initials}</text></svg>`;
     },
 
     // Get all trading symbols (for search)
@@ -203,13 +214,21 @@ const BinanceAPI = {
         };
     },
 
+    // Stablecoin listesi (taramadan hariç tutulacak)
+    STABLECOINS: ['USDC', 'BUSD', 'DAI', 'TUSD', 'FDUSD', 'USDP', 'USDD', 'GUSD', 'PAXG', 'EURC', 'AEUR', 'UST', 'FRAX', 'LUSD', 'SUSD', 'CUSD', 'MIM', 'DOLA', 'CRVUSD', 'GHO', 'PYUSD', 'EURI'],
+
     // Get top coins by volume (for scanner)
     async getTopCoins(limit = 200) {
         const tickers = await this.getAllTickers();
 
         // Sort by quote volume and take top N
         const sorted = tickers
-            .filter(t => parseFloat(t.quoteVolume) > 1000000) // Min $1M volume
+            .filter(t => {
+                const baseAsset = t.symbol.replace('USDT', '');
+                // Min $1M volume ve stablecoin olmayanlar
+                return parseFloat(t.quoteVolume) > 1000000 &&
+                    !this.STABLECOINS.includes(baseAsset);
+            })
             .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
             .slice(0, limit);
 

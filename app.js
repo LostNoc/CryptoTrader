@@ -12,6 +12,8 @@ const App = {
     currentSymbol: null,
     searchTimeout: null,
     lastPrice: 0,
+    cameFromScanner: false,
+    lastScannerTab: 'signals',
 
     async init() {
         this.setupEventListeners();
@@ -68,11 +70,15 @@ const App = {
                 const tab = btn.dataset.tab;
                 document.getElementById('analysisTab').style.display = tab === 'analysis' ? 'block' : 'none';
                 document.getElementById('signalsTab').style.display = tab === 'signals' ? 'block' : 'none';
+                document.getElementById('highleverageTab').style.display = tab === 'highleverage' ? 'block' : 'none';
             });
         });
 
         // Scan button
         document.getElementById('scanBtn').addEventListener('click', () => Scanner.scan());
+
+        // High Leverage Scan button
+        document.getElementById('hlScanBtn').addEventListener('click', () => HighLeverageScanner.scan());
 
         // Clear cache button
         document.getElementById('clearCacheBtn').addEventListener('click', () => {
@@ -87,41 +93,6 @@ const App = {
                 document.getElementById('leverage').value = btn.dataset.lev;
             });
         });
-
-        // ============ TEMİNAT HESAPLAYICI EVENT LISTENERS ============
-
-        // Teminat ekleme hesaplama butonu
-        document.getElementById('calcMarginBtn').addEventListener('click', () => this.calculateMarginEffect());
-
-        // Hedef likidasyon hesaplama butonu
-        document.getElementById('calcTargetBtn').addEventListener('click', () => this.calculateTargetMargin());
-
-        // Hedef yüzde preset butonları
-        document.querySelectorAll('.target-preset-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.getElementById('targetLiqPercent').value = btn.dataset.percent;
-            });
-        });
-
-        // ============ BAĞIMSIZ TEMİNAT HESAPLAYICI EVENT LISTENERS ============
-
-        // Bağımsız teminat hesaplayıcı Long/Short toggle
-        document.getElementById('marginLongBtn').addEventListener('click', () => {
-            document.getElementById('marginLongBtn').classList.add('active');
-            document.getElementById('marginShortBtn').classList.remove('active');
-            this.standaloneMarginData.isLong = true;
-        });
-        document.getElementById('marginShortBtn').addEventListener('click', () => {
-            document.getElementById('marginShortBtn').classList.add('active');
-            document.getElementById('marginLongBtn').classList.remove('active');
-            this.standaloneMarginData.isLong = false;
-        });
-
-        // Bağımsız likidasyon hesaplama butonu
-        document.getElementById('calcMarginStandaloneBtn').addEventListener('click', () => this.calculateStandaloneMargin());
-
-        // Teminat simülasyonu butonu
-        document.getElementById('simAddMarginBtn').addEventListener('click', () => this.simulateAddMargin());
 
         // Scan mode toggle
         document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -325,12 +296,22 @@ const App = {
         const patternsList = document.getElementById('patternsList');
         if (patterns.patterns.length > 0) {
             patternsList.innerHTML = patterns.patterns.slice(0, 3).map(p =>
-                `<div class="pattern-item ${p.type}">
+                `<div class="pattern-item ${p.type}" data-pattern="${p.name}" style="cursor: pointer;">
                     <span class="pattern-emoji">${p.emoji}</span>
                     <span class="pattern-name">${p.name}</span>
                     <span class="pattern-trend">${p.type === 'bullish' ? '👍' : p.type === 'bearish' ? '👎' : '➖'}</span>
                 </div>`
             ).join('');
+
+            // Pattern item'larına tıklama olayı ekle
+            patternsList.querySelectorAll('.pattern-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const patternName = item.dataset.pattern;
+                    if (typeof PatternVisuals !== 'undefined') {
+                        PatternVisuals.show(patternName);
+                    }
+                });
+            });
         } else {
             patternsList.innerHTML = '<span class="no-pattern">Formasyon yok</span>';
         }
@@ -480,208 +461,32 @@ const App = {
         document.getElementById('liqPrice').textContent = RiskCalculator.formatUSD(result.liqPrice);
         document.getElementById('maxLoss').textContent = RiskCalculator.formatUSD(result.maxLoss);
         document.getElementById('calcResults').classList.add('active');
-
-        // Reset margin results when new calculation is done
-        document.getElementById('marginResults').classList.add('hidden');
-        document.getElementById('targetResults').classList.add('hidden');
-    },
-
-    // ============ TEMİNAT HESAPLAYICISI ============
-
-    calculateMarginEffect() {
-        if (!this.lastCalcResult) {
-            this.showToast('Önce Risk Hesaplaması yapın', true);
-            return;
-        }
-
-        const additionalMargin = parseFloat(document.getElementById('addMarginAmount').value) || 0;
-        if (additionalMargin <= 0) {
-            this.showToast('Eklenecek teminat girin', true);
-            return;
-        }
-
-        const result = RiskCalculator.calculateMarginEffect(
-            this.lastCalcResult.entryAmount,
-            additionalMargin,
-            this.lastCalcResult.positionSize,
-            this.lastCalcResult.isLong
-        );
-
-        if (result.error) {
-            this.showToast(result.error, true);
-            return;
-        }
-
-        document.getElementById('newTotalMargin').textContent = RiskCalculator.formatUSD(result.totalMargin);
-        document.getElementById('newEffectiveLeverage').textContent = result.newLeverage.toFixed(1) + 'x';
-        document.getElementById('newLiqPrice').textContent = RiskCalculator.formatUSD(result.newLiqPrice);
-        document.getElementById('liqImprovement').textContent = '+%' + result.liqImprovement.toFixed(2);
-
-        document.getElementById('marginResults').classList.remove('hidden');
-    },
-
-    calculateTargetMargin() {
-        if (!this.lastCalcResult) {
-            this.showToast('Önce Risk Hesaplaması yapın', true);
-            return;
-        }
-
-        const targetPercent = parseFloat(document.getElementById('targetLiqPercent').value) || 10;
-        if (targetPercent <= 0) {
-            this.showToast('Hedef yüzde girin', true);
-            return;
-        }
-
-        const result = RiskCalculator.calculateRequiredMargin(
-            this.lastCalcResult.entryAmount,
-            this.lastCalcResult.positionSize,
-            targetPercent,
-            this.lastCalcResult.isLong
-        );
-
-        if (result.error) {
-            this.showToast(result.error, true);
-            return;
-        }
-        document.getElementById('targetLiqPriceResult').textContent = RiskCalculator.formatUSD(result.targetLiqPrice);
-        document.getElementById('requiredTotalMargin').textContent = RiskCalculator.formatUSD(result.requiredTotalMargin);
-        document.getElementById('additionalMarginNeeded').textContent = RiskCalculator.formatUSD(result.additionalMarginNeeded);
-        document.getElementById('targetNewLeverage').textContent = result.newLeverage.toFixed(1) + 'x';
-
-        document.getElementById('targetResults').classList.remove('hidden');
-    },
-
-    // ============ BAĞIMSIZ TEMİNAT HESAPLAYICISI ============
-
-    standaloneMarginData: {
-        isLong: true,
-        entryPrice: 0,
-        leverage: 0,
-        positionSize: 0,
-        margin: 0,
-        liqPrice: 0
-    },
-
-    calculateStandaloneMargin() {
-        const entryPrice = parseFloat(document.getElementById('marginEntryPrice').value) || 0;
-        const leverage = parseInt(document.getElementById('marginLeverage').value) || 0;
-        const positionSize = parseFloat(document.getElementById('marginPositionSize').value) || 0;
-        const margin = parseFloat(document.getElementById('marginAmount').value) || 0;
-
-        // Validasyon
-        if (entryPrice <= 0) {
-            this.showToast('Giriş fiyatı girin', true);
-            return;
-        }
-        if (leverage <= 0) {
-            this.showToast('Kaldıraç girin', true);
-            return;
-        }
-        if (positionSize <= 0) {
-            this.showToast('Pozisyon büyüklüğü girin', true);
-            return;
-        }
-        if (margin <= 0) {
-            this.showToast('Teminat miktarı girin', true);
-            return;
-        }
-
-        // Değerleri sakla
-        this.standaloneMarginData = {
-            isLong: this.standaloneMarginData.isLong,
-            entryPrice,
-            leverage,
-            positionSize,
-            margin
-        };
-
-        // Likidasyon fiyatı hesapla
-        // Liq% = Margin / Position Size * 100
-        const liqPercent = (margin / positionSize) * 100;
-
-        let liqPrice;
-        if (this.standaloneMarginData.isLong) {
-            liqPrice = entryPrice * (1 - liqPercent / 100);
-        } else {
-            liqPrice = entryPrice * (1 + liqPercent / 100);
-        }
-
-        this.standaloneMarginData.liqPrice = liqPrice;
-
-        // Efektif kaldıraç
-        const effLeverage = positionSize / margin;
-
-        // Marjin oranı
-        const marginRatio = (margin / positionSize) * 100;
-
-        // Risk seviyesi
-        let riskLevel, riskClass;
-        if (liqPercent < 2) {
-            riskLevel = '🔴 Çok Riskli';
-            riskClass = 'danger';
-        } else if (liqPercent < 5) {
-            riskLevel = '🟠 Riskli';
-            riskClass = 'warning';
-        } else if (liqPercent < 10) {
-            riskLevel = '🟡 Orta';
-            riskClass = 'warning';
-        } else {
-            riskLevel = '🟢 Güvenli';
-            riskClass = 'safe';
-        }
-
-        // UI güncelle
-        document.getElementById('marginLiqPrice').textContent = this.formatPrice(liqPrice);
-        document.getElementById('marginLiqPercent').textContent = `Girişten %${liqPercent.toFixed(2)} uzakta`;
-        document.getElementById('marginEffLeverage').textContent = effLeverage.toFixed(1) + 'x';
-        document.getElementById('marginRatio').textContent = '%' + marginRatio.toFixed(2);
-        document.getElementById('marginSafeZone').textContent = '%' + liqPercent.toFixed(1);
-        document.getElementById('marginSafeZone').className = 'info-value ' + riskClass;
-        document.getElementById('marginRiskLevel').textContent = riskLevel;
-        document.getElementById('marginRiskLevel').className = 'info-value ' + riskClass;
-
-        document.getElementById('marginStandaloneResults').classList.add('active');
-        document.getElementById('simResults').classList.add('hidden');
-    },
-
-    simulateAddMargin() {
-        if (!this.standaloneMarginData.entryPrice) {
-            this.showToast('Önce likidasyon hesaplayın', true);
-            return;
-        }
-
-        const addAmount = parseFloat(document.getElementById('simAddMargin').value) || 0;
-        if (addAmount <= 0) {
-            this.showToast('Eklenecek teminat girin', true);
-            return;
-        }
-
-        const newMargin = this.standaloneMarginData.margin + addAmount;
-        const newLiqPercent = (newMargin / this.standaloneMarginData.positionSize) * 100;
-
-        let newLiqPrice;
-        if (this.standaloneMarginData.isLong) {
-            newLiqPrice = this.standaloneMarginData.entryPrice * (1 - newLiqPercent / 100);
-        } else {
-            newLiqPrice = this.standaloneMarginData.entryPrice * (1 + newLiqPercent / 100);
-        }
-
-        // Önceki likidasyon ile karşılaştır
-        const oldLiqPercent = (this.standaloneMarginData.margin / this.standaloneMarginData.positionSize) * 100;
-        const improvement = Math.abs(newLiqPercent - oldLiqPercent);
-
-        // UI güncelle
-        document.getElementById('simNewMargin').textContent = this.formatPrice(newMargin);
-        document.getElementById('simNewLiqPrice').textContent = this.formatPrice(newLiqPrice);
-        document.getElementById('simImprovement').textContent = '+%' + improvement.toFixed(2);
-
-        document.getElementById('simResults').classList.remove('hidden');
     },
 
     formatPrice(price) {
         if (price < 0.01) return '$' + price.toFixed(6);
         if (price < 1) return '$' + price.toFixed(4);
         return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+
+    // Back to scanner from analysis
+    backToScanner() {
+        this.cameFromScanner = false;
+        document.getElementById('backToScannerBtn').classList.add('hidden');
+        document.querySelector(`[data-tab="${this.lastScannerTab}"]`).click();
+    },
+
+    // Show back button when coming from scanner
+    showBackToScannerBtn(fromTab) {
+        this.cameFromScanner = true;
+        this.lastScannerTab = fromTab;
+        document.getElementById('backToScannerBtn').classList.remove('hidden');
+    },
+
+    // Hide back button
+    hideBackToScannerBtn() {
+        this.cameFromScanner = false;
+        document.getElementById('backToScannerBtn').classList.add('hidden');
     },
 
     // ============ REAL-TIME PRICE UPDATES ============
